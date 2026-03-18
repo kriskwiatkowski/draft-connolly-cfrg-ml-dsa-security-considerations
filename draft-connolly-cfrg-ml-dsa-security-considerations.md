@@ -89,6 +89,14 @@ informative:
       -
         org: National Institute of Standards and Technology (NIST)
 
+  NIST-PQC-ExtMu:
+    title: "FAQ - FIPS 204 - Computing mu"
+    target: https://csrc.nist.gov/csrc/media/Projects/post-quantum-cryptography/documents/faq/fips204-sec6-03192025.pdf
+    date: March 2025
+    author:
+      -
+        org: National Institute of Standards and Technology (NIST)
+
   RFC4086:
 
   SCHMIEG24:
@@ -459,41 +467,59 @@ running ML-DSA.KeyGen() with the corresponding seed. Inconsistencies
 between the two representations could lead to undefined behavior
 {{SCHMIEG25}}.
 
+### External Mu {#external-mu}
+
+ML-DSA's signing algorithm (Algorithm 7 of {{FIPS204}}) computes a fixed-size
+(64-byte) message representative `mu` as the first step, derived from the
+hash of the public verifiying key `tr` and the message `M`, before any
+private signing key material is involved. All subsequent signing operations
+use only `mu`, not the original message. This structure means that `mu` can
+be pre-computed in a separate cryptographic module from the one that holds
+the signing key, and NIST has explicitly confirmed this is permitted by FIPS
+204 {{NIST-PQC-ExtMu}}.
+
+This "external mu" approach solves the use cases that HashML-DSA
+({{hashmldsa}}) was intended to address:
+
+- **Large messages**: The module computing `mu` can stream arbitrarily
+  large messages through SHAKE256. The signing module only ever receives
+  the fixed-size 64-byte `mu`, regardless of message size.
+
+- **HSM and remote signing**: An application computes `mu` from the
+  public verifying key and the message, then sends only `mu` to a
+  signing module such as an HSM. The signing module generates its own
+  `rnd` internally and produces the signature.
+
+- **No verification ambiguity**: The resulting signatures are standard
+  ML-DSA signatures. Verifiers do not need to know whether `mu` was
+  computed locally or externally.
+
+The module computing `mu` needs a validated implementation of SHAKE256 to be
+FIPS-compliant. The signing module needs to implement the ML-DSA signing
+algorithm from `mu` onward, including its own random number generation for
+`rnd` {{NIST-PQC-ExtMu}}.
+
 ### HashML-DSA {#hashmldsa}
 
 FIPS 204 defines HashML-DSA, a variant that signs a hash of the message
-rather than the message directly. This variant was intended to support use
-cases where the full message cannot be transmitted to the signer, such as
-when the signer is an HSM or a remote signing service.
+rather than the message directly, intended for cases where the full
+message cannot be transmitted to the signer. However, HashML-DSA
+conflates a protocol-level decision with the cryptographic primitive,
+introducing several problems {{SCHMIEG24}}:
 
-However, HashML-DSA conflates a protocol-level decision (how to handle
-large messages) with the cryptographic primitive, introducing several
-problems {{SCHMIEG24}}:
-
-- **Verification ambiguity**: A signature produced by HashML-DSA differs
-  from one produced by ML-DSA on the same message. The verifier needs to know
-  which variant was used, which requires protocol-level resolution anyway,
+- **Verification ambiguity**: A HashML-DSA signature differs from an
+  ML-DSA signature on the same message. The verifier needs to know which
+  variant was used, which requires protocol-level resolution anyway,
   defeating the purpose of building this into the primitive.
 
-- **Algorithm confusion risk**: HashML-DSA requires the hash algorithm
-  identifier and parameters to be transmitted alongside the signature. If
-  these parameters are carried through untrusted channels, this introduces
-  the possibility of algorithm confusion attacks similar to those seen with
-  JSON Web Tokens. Signature schemes are not guaranteed to be secure if the
-  payload describes how to verify itself.
+- **Algorithm confusion risk**: HashML-DSA requires hash algorithm
+  identifiers and parameters to be transmitted alongside the signature.
+  If these are carried through untrusted channels, this introduces
+  algorithm confusion risks similar to those seen with JSON Web Tokens.
 
-- **Unnecessary complexity**: ML-DSA already computes a message
-  representative (mu) early in the signing process, before any secret signing
-  key material is involved. This naturally supports pre-hashing at the
-  protocol level: a protocol can hash the message, or compute a Merkle tree
-  root, or concatenate a hash with metadata, and then sign the result using
-  plain ML-DSA. No new primitive variant is needed to support this pattern.
-
-Protocols that need to sign large messages or interact with HSMs are better
-served by hashing at the protocol layer and signing the result with plain
-ML-DSA, rather than using HashML-DSA. This keeps the separation between the
-cryptographic primitive and the protocol clean, and avoids the verification
-ambiguity and algorithm confusion risks introduced by HashML-DSA.
+The external mu approach described in {{external-mu}} solves the same
+use cases without these drawbacks, and NIST has explicitly blessed it
+for use with FIPS-validated modules {{NIST-PQC-ExtMu}}.
 
 ### Issues that are likely not a concern {#non-issues}
 
