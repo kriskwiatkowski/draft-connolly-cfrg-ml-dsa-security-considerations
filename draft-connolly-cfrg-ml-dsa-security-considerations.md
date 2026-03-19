@@ -161,8 +161,9 @@ signer whose public verifying key is still trusted. This is a particular
 concern for:
 
 - Long-lived code signing keys
-- Certificate authority root keys
+- Certificate authority root keys and the time needed to establish new ones
 - Firmware signing keys
+- Digital contract signing keys
 - Any public verifying key that will be in use while an active CRQC is a
   threat
 
@@ -190,8 +191,8 @@ The first step for the signer is to generate a key pair.
 
 In FIPS 204, the key generation function is `ML-DSA.KeyGen()` (see section
 6.1 of {{FIPS204}}). It internally calls the random number generator for a
-32-byte seed (`xi`) and produces both a public verifying key `pk`and a private
-signing key `sk`.
+32-byte seed (`xi`, `ξ` in FIPS 204) and produces both a public verifying key
+`pk`and a private signing key `sk`.
 
 FIPS 204 supports two signing key formats: the 32-byte seed used as input to
 key generation serves as a compact signing key format with significant
@@ -206,18 +207,17 @@ impossible to independently choose parts of the signing key.
 
 The expanded signing key components (`rho`, `K`, `tr`, `s1`, `s2`, `t0`), may
 be cached in memory for the duration of signing operations to avoid
-re-running key generation on each signature. This cached expanded key
-material requires the same protections as the seed signing key and benefits
-from being securely deleted when no longer needed.
+re-running key generation on each signature (`rho` is `ρ` in FIPS 204). This
+cached expanded key material requires the same protections as the seed
+signing key and benefits from being securely deleted when no longer needed.
 
 The public verifying key can be freely published; verifiers will need it to
 verify signatures. However, the signing key material needs to be kept secret
 and protected from modification.
 
-ML-DSA key generation is very fast, as it does not require rejection
-sampling. The signing key components are sampled from a uniform distribution,
-making key generation straightforward and not a significant computational
-burden.
+ML-DSA key generation is very fast. The signing key components are sampled
+from a uniform distribution, making key generation straightforward and not a
+significant computational burden.
 
 ## Signing {#signing}
 
@@ -226,7 +226,7 @@ The second step is for the signer to produce a signature on a message.
 To do this, the signer would perform what FIPS 204 calls `ML-DSA.Sign(sk, M,
 ctx)` (see section 6.2 of {{FIPS204}}). This takes as input the signing key
 `sk`, a message `M`, and an optional context string `ctx` (up to 255 bytes),
-and produces a signature `sigma`.
+and produces a signature `sigma` (`σ` in FIPS 204).
 
 Internally, the signing process uses rejection sampling: the raw signing
 procedure is not always successful on the first attempt, and is repeated
@@ -246,8 +246,8 @@ ML-DSA supports two modes of signing:
 
 - **Deterministic signing**: The randomness input (`rnd`) is set to all
   zeros, making the signature a deterministic function of the signing key and
-  message. This is specified by `ML-DSA.Sign_internal()` with `rnd` set to 32
-  zero bytes.
+  message. This is specified by `ML-DSA.Sign()` with `rnd` set to 32 zero
+  bytes.
 
 There is no reason to prefer deterministic signing over hedged signing;
 hedged signing is the safer default in all environments, and is essential
@@ -302,7 +302,7 @@ each parameter set, as well as their relative cryptographic strength:
 
 |             | vk size | sk size | expanded sk size | sig size | NIST Level (~as strong as) |
 | :---------- | ------: | ------: | ---------------: | -------: | :------------------------: |
-| ML-DSA-44   |    1312 |      32 |             2560 |     2420 |       2 (~AES-128)         |
+| ML-DSA-44   |    1312 |      32 |             2560 |     2420 |       2 (~SHA(3)-256)      |
 | ML-DSA-65   |    1952 |      32 |             4032 |     3309 |       3 (~AES-192)         |
 | ML-DSA-87   |    2592 |      32 |             4896 |     4627 |       5 (~AES-256)         |
 {: #par-sets title="vk = public verifying key, sk = signing key (seed form), expanded sk = signing key components cached for signing, sig = signature, all lengths in bytes"}
@@ -439,8 +439,8 @@ FIPS 204 permits two representations of the ML-DSA signing key:
 - **Seed signing key format (32 bytes)**: The random seed used as input to
   `ML-DSA.KeyGen_internal()`. The full expanded signing key can be
   deterministically regenerated from this seed at any time. NIST considers a
-  `ML-DSA.KeyGen_internal()` seed to be an acceptable alternative format for a
-  signing key, including for generation in one cryptographic module and
+  `ML-DSA.KeyGen_internal()` seed to be an acceptable alternative format for
+  a signing key, including for generation in one cryptographic module and
   import/export to another {{NIST-PQC-FAQ}}. The seed signing key format
   inherently prevents malformed keys, since the key generation algorithm
   ensures that all derived values satisfy the required mathematical
@@ -467,16 +467,16 @@ running `ML-DSA.KeyGen_internal()` with the corresponding
 seed. Inconsistencies between the two representations could lead to undefined
 behavior {{SCHMIEG25}}.
 
-### External Mu {#external-mu}
+### External `Mu` (`μ`) {#external-mu}
 
 ML-DSA's signing algorithm (Algorithm 7 of {{FIPS204}}) computes a fixed-size
-(64-byte) message representative `mu` as the first step, derived from the
-hash of the public verifiying key `tr` and the message `M`, before any
-private signing key material is involved. All subsequent signing operations
-use only `mu`, not the original message. This structure means that `mu` can
-be pre-computed in a separate cryptographic module from the one that holds
-the signing key, and NIST has explicitly confirmed this is permitted by FIPS
-204 {{NIST-PQC-ExtMu}}.
+(64-byte) message representative `mu` (`μ` in FIPS 204) as the first step,
+derived from the hash of the public verifiying key `tr` and the message `M`,
+before any private signing key material is involved. All subsequent signing
+operations use only `mu`, not the original message. This structure means that
+`mu` can be pre-computed in a separate cryptographic module from the one that
+holds the signing key, and NIST has explicitly confirmed this is permitted by
+FIPS 204 {{NIST-PQC-ExtMu}}.
 
 This "external mu" approach solves the use cases that HashML-DSA
 ({{hashmldsa}}) was intended to address:
