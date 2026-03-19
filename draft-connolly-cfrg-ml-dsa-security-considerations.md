@@ -430,7 +430,8 @@ signature is found. This means:
 
 - Imposing a fixed upper bound on the number of iterations that causes
   signing to fail is unnecessary and harmful. The probability of requiring
-  a very large number of iterations is negligible. <!-- TODO: cite -->
+  a very large number of iterations is negligible (see
+  {{signing-loop-bounds}}).
 
 ### Signing Key Format {#key-format}
 
@@ -547,6 +548,39 @@ timing. In deterministic mode, the timing could in theory leak information
 about the deterministic nonce, though this is a much less practical concern
 than the fault injection attacks described in {{fault-injection}}.
 
+#### Signing loop bounds and probability of failure {#signing-loop-bounds}
+
+ML-DSA's signing algorithm (Algorithm 7 of {{FIPS204}}) uses a rejection
+sampling loop as part of the Fiat-Shamir with Aborts construction
+{{Lyubashevsky09}}: each iteration computes a candidate signature, and checks
+whether it satisfies several norm bounds. If any check fails, the candidate
+is discarded and the loop repeats with fresh randomness and an incremented
+counter.
+
+It may appear that this loop could run for a very long time, or that
+implementations need to guard against the possibility of the loop failing to
+terminate: in practice, this is not a concern. The expected number of
+iterations is small: 4.25 for ML-DSA-44, 5.1 for ML-DSA-65, and 3.85 for
+ML-DSA-87 (Table 1 of {{FIPS204}}).  Each iteration independently succeeds
+with probability at least 1/5.1 (the worst case across all parameter sets),
+so the probability of requiring more than `n` iterations is at most ((5.1 -
+1) / 5.1)^n where n, which decreases exponentially. Appendix C of {{FIPS204}}
+shows that the probability of needing more than 814 iterations is less than
+2^-256 for all parameter sets — that is, it likely will not happen before the
+heat death of the universe. A great majority of signing operations complete
+in fewer than 10 iterations.
+
+To remain FIPS 204 compliant, implementations should not (equivalent to
+'SHOULD NOT') impose a fixed upper bound on the number of signing loop
+iterations. If an implementation does impose a limit, FIPS 204 requires that
+it shall not (equiv. to 'MUST NOT') be lower than 814, and that the signing
+algorithm shall (equiv. to 'MUST') return an error, produce no other output,
+and destroy the candidate results of the unsuccessful signing attempts
+(Appendix C of {{FIPS204}}). An artificially low iteration limit is more
+likely to cause problems than it is to prevent them: it could cause signing
+to fail for valid keys under normal operation, and in deterministic mode
+could introduce a detectable failure mode that leaks information about the
+signing key.
 
 # IANA Considerations {#iana}
 
