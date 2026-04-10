@@ -234,7 +234,8 @@ until a valid signature is produced. This is normal behavior and not an
 indication of error, resulting from the construction of ML-DSA from
 Fiat-Shamir with Aborts {{Lyubashevsky09}}. On average, signing requires a
 small number of iterations. However, this does mean that signing time has
-some variance.
+some variance. A detailed analysis of how rejection sampling affects signing
+time can be found in {{Section 5.1 of ?I-D.draft-ietf-pquip-pqc-hsm-constrained}}.
 
 ### Hedged vs. Deterministic Signing {#hedged-vs-deterministic}
 
