@@ -357,7 +357,7 @@ The fundamental security property of ML-DSA is that someone with the public
 verifying key and access to signatures cannot forge a signature on a new
 message, and this is true even if the adversary has access to a CRQC. ML-DSA
 is EUF-CMA (Existentially Unforgeable under Chosen Message Attack) secure;
-that is, it remains secure (infeasible to forge verifibale signatures under
+that is, it remains secure (infeasible to forge verifiable signatures under
 the public verifying key) even if an adversary can request signatures on
 arbitrary messages of their choosing. The adversary still cannot produce a
 valid signature on any message that was not previously signed.
@@ -472,7 +472,7 @@ behavior {{SCHMIEG25}}.
 
 ML-DSA's signing algorithm (Algorithm 7 of {{FIPS204}}) computes a fixed-size
 (64-byte) message representative `mu` (`μ` in FIPS 204) as the first step,
-derived from the hash of the public verifiying key `tr` and the message `M`,
+derived from the hash of the public verifying key `tr` and the message `M`,
 before any private signing key material is involved. All subsequent signing
 operations use only `mu`, not the original message. This structure means that
 `mu` can be pre-computed in a separate cryptographic module from the one that
